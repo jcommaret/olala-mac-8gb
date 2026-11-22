@@ -3,5 +3,3 @@ llama.cpp/
 gguf/
 *.gguf
 .DS_Store
-# Ancienne installation MLX locale, hors dépôt
-mlx-engine/
