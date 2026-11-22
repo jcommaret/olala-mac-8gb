@@ -1,0 +1,8 @@
+# Forks clonés et poids téléchargés par les scripts
+llama.cpp/
+mlx-engine/
+gguf/
+*.gguf
+*.safetensors
+.DS_Store
+__pycache__/
