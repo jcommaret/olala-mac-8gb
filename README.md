@@ -1,22 +1,22 @@
-# Olala sur un Mac Apple Silicon 8 Go
+# Olala on an 8 GB Apple Silicon Mac
 
-Recette pour faire tourner [Olala-v1.0-mini-7A1B](https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B) (OVHcloud, Apache-2.0) en local sur un Mac à **8 Go de RAM**, avec une interface de chat dans le navigateur.
+A recipe to run [Olala-v1.0-mini-7A1B](https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B) (OVHcloud, Apache-2.0) locally on a Mac with **8 GB of RAM**, with a chat interface in the browser.
 
-Olala est un modèle hybride (Mamba + attention + MoE, 6,8 B paramètres, ~1 B actifs). Son architecture `olala` n'est pas prise en charge par llama.cpp officiel ni par Ollama : il faut le [fork llama.cpp d'OVH](https://github.com/OVHai-LLM/llama.cpp).
+Olala is a hybrid model (Mamba + attention + MoE, 6.8B parameters, ~1B active). Its `olala` architecture is not supported by upstream llama.cpp or Ollama: you need [OVH's llama.cpp fork](https://github.com/OVHai-LLM/llama.cpp).
 
 ## Installation
 
 ```sh
 git clone https://github.com/jcommaret/olala-mac-8gb.git && cd olala-mac-8gb
-./setup.sh          # clone + compile le fork llama.cpp d'OVH, télécharge le GGUF q5_k_m (6 Go)
-./start-llama.sh    # puis ouvrir http://127.0.0.1:8080
+./setup.sh          # clones and builds OVH's llama.cpp fork, downloads the q5_k_m GGUF (6 GB)
+./start-llama.sh    # then open http://127.0.0.1:8080
 ```
 
-Prérequis : Xcode Command Line Tools, CMake, git, Node.js (pour compiler l'interface web), ~8 Go de disque.
+Requirements: Xcode Command Line Tools, CMake, git, Node.js (to build the web UI), ~8 GB of free disk space.
 
 ## Configuration
 
-GGUF **q5_k_m** sur le **CPU**, experts MoE lus à la demande depuis le SSD (`start-llama.sh`) :
+**q5_k_m** GGUF on the **CPU**, with MoE experts read on demand from the SSD (`start-llama.sh`):
 
 ```sh
 llama-server -m Olala-v1.0-mini-7A1B-q5_k_m.gguf \
@@ -25,40 +25,40 @@ llama-server -m Olala-v1.0-mini-7A1B-q5_k_m.gguf \
   -ctk q8_0 -ctv q8_0 -c 8192 -np 1 --host 127.0.0.1 --port 8080
 ```
 
-| Option | Rôle |
+| Option | Purpose |
 |---|---|
-| `-dev none -ngl 0 --no-op-offload` | tout sur le CPU : sur 8 Go, le modèle ne tient pas dans la mémoire GPU |
-| `-t 4` | un thread par cœur performance du M2 |
-| `--lazy-mode on --lazy-cache 2G` | les experts MoE restent sur le SSD, 2 Go des plus récents sont gardés en RAM |
-| `-fa on -nr -ctk q8_0 -ctv q8_0` | réglages CPU recommandés par OVH (flash attention, pas de repack, KV cache 8 bits) |
-| `-c 8192 -np 1` | un utilisateur, 8k tokens de contexte (un prompt plus long que `-c` échoue : le modèle est récurrent) |
+| `-dev none -ngl 0 --no-op-offload` | everything on the CPU: with 8 GB, the model does not fit in GPU memory |
+| `-t 4` | one thread per M2 performance core |
+| `--lazy-mode on --lazy-cache 2G` | MoE experts stay on the SSD; the 2 GB most recently used are kept in RAM |
+| `-fa on -nr -ctk q8_0 -ctv q8_0` | CPU settings recommended by OVH (flash attention, no repacking, 8-bit KV cache) |
+| `-c 8192 -np 1` | one user, 8k-token context (a prompt longer than `-c` fails: the model is recurrent) |
 
-## Performances
+## Performance
 
-MacBook Air M2 (4 cœurs P + 4 cœurs E), 8 Go, macOS 27.3, avec d'autres applications ouvertes.
+MacBook Air M2 (4 P-cores + 4 E-cores), 8 GB, macOS 27.3, with other applications open.
 
-| Mesure | Résultat |
+| Metric | Result |
 |---|---|
-| Lecture du prompt (`llama-bench`, pp256) | ~56 tok/s |
-| Génération (`llama-bench`, tg64) | ~15,5 tok/s |
-| 1er token, prompt de ~300 tokens | 1–2 s (~8 s à la toute première requête) |
-| Génération en usage réel (réponses de 550–700 tokens) | 15,4–15,8 tok/s |
-| Mémoire | ~3 Go, pas de swap |
+| Prompt processing (`llama-bench`, pp256) | ~56 tok/s |
+| Generation (`llama-bench`, tg64) | ~15.5 tok/s |
+| Time to first token, ~300-token prompt | 1–2 s (~8 s on the very first request) |
+| Generation in real use (550–700-token answers) | 15.4–15.8 tok/s |
+| Memory | ~3 GB, no swapping |
 
-## Utilisation
+## Usage
 
-- **Interface web** : http://127.0.0.1:8080 (raisonnement affiché à part, bouton *Skip reasoning*).
-- **API compatible OpenAI** : `http://127.0.0.1:8080/v1`. Paramètre `reasoning_effort` : `none`, `low`, `medium`, `high`.
+- **Web UI**: http://127.0.0.1:8080 (reasoning shown separately, *Skip reasoning* button).
+- **OpenAI-compatible API**: `http://127.0.0.1:8080/v1`. `reasoning_effort` parameter: `none`, `low`, `medium`, `high`.
 
 ```sh
 curl -s http://127.0.0.1:8080/v1/chat/completions -H 'Content-Type: application/json' -d '{
-  "messages": [{"role": "user", "content": "Bonjour !"}],
+  "messages": [{"role": "user", "content": "Hello!"}],
   "reasoning_effort": "low", "temperature": 0.8, "top_p": 0.9, "top_k": 40
 }'
 ```
 
-Le raisonnement est souvent long : `low` ou `none` donnent des réponses bien plus rapides.
+Reasoning is often long: `low` or `none` give much faster answers.
 
-## Crédits
+## Credits
 
-Modèle et fork llama.cpp : OVHcloud / OVH LLM SAS (Apache-2.0, MIT). Ce dépôt ne contient que des scripts, aucun poids ; ils sont sous [licence MIT](LICENSE).
+Model and llama.cpp fork: OVHcloud / OVH LLM SAS (Apache-2.0, MIT). This repository only contains scripts, no weights; they are under the [MIT license](LICENSE).

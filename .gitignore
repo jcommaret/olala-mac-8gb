@@ -1,4 +1,4 @@
-# Fork cloné et poids téléchargés par setup.sh
+# Fork cloned and weights downloaded by setup.sh
 llama.cpp/
 gguf/
 *.gguf

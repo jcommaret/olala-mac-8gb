@@ -1,6 +1,6 @@
 #!/bin/zsh
-# Olala q5_k_m via le fork llama.cpp d'OVH, réglé pour un Mac Apple Silicon 8 Go.
-# Interface de chat + API OpenAI : http://127.0.0.1:8080   (Ctrl+C pour arrêter)
+# Olala q5_k_m with OVH's llama.cpp fork, tuned for an 8 GB Apple Silicon Mac.
+# Chat UI + OpenAI-compatible API: http://127.0.0.1:8080   (Ctrl+C to stop)
 ROOT="${0:A:h}"
 exec "$ROOT/llama.cpp/build/bin/llama-server" \
   -m "$ROOT/gguf/Olala-v1.0-mini-7A1B-q5_k_m.gguf" \
