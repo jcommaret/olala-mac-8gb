@@ -14,7 +14,7 @@ git clone https://github.com/jcommaret/olala-mac-8gb.git && cd olala-mac-8gb
 
 Prérequis : Xcode Command Line Tools, CMake, git, Node.js (pour compiler l'interface web), ~8 Go de disque.
 
-## Résultats mesurés (MacBook M2, 8 Go)
+## Résultats mesurés (MacBook Air M2, 8 Go)
 
 | Configuration | 1er token | Génération | Remarque |
 |---|---|---|---|
@@ -25,7 +25,61 @@ Prérequis : Xcode Command Line Tools, CMake, git, Node.js (pour compiler l'inte
 | **llama.cpp CPU, 4 threads, lazy, cache 2 Go** | **1–2 s** | **~15 tok/s** | **retenu**, pas de swap |
 | llama.cpp CPU, 4 threads, lazy, cache 3 Go | 1–2 s | ~15–16 tok/s | pas mieux, le swap remonte |
 
-Prompt de ~300 tokens, réponses de 150 à 700 tokens. En appel direct (sans serveur) MLX atteint ~38 tok/s en génération, mais l'attente du premier token rend l'usage interactif pénible sur 8 Go.
+Prompt de ~300 tokens, réponses de 150 à 700 tokens. En appel direct (sans serveur) MLX atteint ~38 tok/s en génération, mais l'attente du premier token rend l'usage interactif pénible sur 8 Go. Détail de toutes les mesures ci-dessous.
+
+## Mesures détaillées
+
+Machine : MacBook Air M2 (Mac14,2 ; 4 cœurs P + 4 cœurs E, GPU 10 cœurs), **8 Go**, macOS 27.3, novembre 2026. Mesures prises avec l'app Claude et un navigateur ouverts (conditions d'usage réelles, pas une machine vide). Échantillonnage : `temperature 0.8, top_p 0.9, top_k 40`.
+
+### llama.cpp (fork OVH, commit `55c22dc`) — `llama-bench`, GGUF q5_k_m (5,57 GiB)
+
+`-fa 1 --repack 0 -p 256 -n 64 -r 2`. pp = lecture du prompt, tg = génération.
+
+| Backend | Threads | Lazy mode | pp256 (tok/s) | tg64 (tok/s) |
+|---|---|---|---|---|
+| CPU (`-ngl 0`, Metal chargé) | 4 | off | 24,9 ± 0,8 | 11,4 ± 1,1 |
+| CPU (`-ngl 0`, Metal chargé) | 4 | on | 56,2 ± 1,5 | 16,1 ± 0,2 |
+| CPU (`-dev none`) | 4 | on | 55,8 ± 0,3 | 15,4 ± 0,5 |
+| CPU (`-dev none`) | 6 | on | 49,7 ± 1,5 | 8,2 ± 1,2 |
+| CPU (`-dev none`) | 8 | on | 48,7 ± 1,0 | 4,9 ± 0,3 |
+| GPU Metal (`-ngl 99`) | — | — | échec : `kIOGPUCommandBufferCallbackErrorOutOfMemory` | |
+
+### llama.cpp — `llama-server`, requêtes réelles en streaming
+
+Réglages de `start-llama.sh` (`-dev none -t 4 -fa on -nr --lazy-mode on -ctk q8_0 -ctv q8_0 -c 8192 -np 1`), seul `--lazy-cache` varie. Le 1er token à ~8 s correspond à la première requête après démarrage (cache des experts vide).
+
+| `--lazy-cache` | Requête | Prompt | 1er token | Tokens générés | Génération |
+|---|---|---|---|---|---|
+| 1 Go (défaut) | question courte ×4 | 303–308 tok | 0,3–1,5 s | 15–140 | 10,5–12,5 tok/s |
+| 1 Go | paragraphe 150 mots | 317 tok | 8,3 s | 659 | 11,2 tok/s |
+| 1 Go | paragraphe 150 mots | 317 tok | 2,1 s | 711 | 11,4 tok/s |
+| **2 Go** | paragraphe 150 mots | 317 tok | 7,8 s | 609 | **15,4 tok/s** |
+| **2 Go** | paragraphe 150 mots | 317 tok | 1,6 s | 558 | **15,8 tok/s** |
+| 3 Go | paragraphe 150 mots | 317 tok | 8,8 s | 453 | 16,3 tok/s |
+| 3 Go | paragraphe 150 mots | 317 tok | 1,6 s | 571 | 14,9 tok/s |
+
+Mémoire : ~2,2 Go de RSS avec 1 Go de cache ; swap à ~0,95 Go avec 2 Go de cache, remonté à 1,6 Go avec 3 Go. Dans l'interface web (2 Go de cache, raisonnement `medium`) : prompt de 717 tokens lu à 47,5 tok/s, 509 tokens générés à 13,4 tok/s.
+
+### MLX q4e8 (fork `mlx-engine` OVH, commit `58083ca`)
+
+Appel direct `mlx_lm.generate` (modèle déjà chargé, pas de serveur) :
+
+| Raisonnement | Prompt | Lecture prompt | Tokens générés | Génération | Mémoire max |
+|---|---|---|---|---|---|
+| `medium` | 309 tok | 30,8 tok/s | 170 | 38,5 tok/s | 5,35 Go |
+| `disabled` | 307 tok | 24,6 tok/s | 63 | 40,2 tok/s | 5,35 Go |
+| `medium` | 306 tok | 31,5 tok/s | 400 | 36,1 tok/s | 5,35 Go |
+
+Via `mlx_engine.server` (requêtes successives, raisonnement `disabled`) :
+
+| Requête | Cache de prompt | 1er token | Tokens générés | Génération |
+|---|---|---|---|---|
+| capitale de l'Italie | 0/307 | 65,4 s | 15 | 55,5 tok/s |
+| capitale de l'Espagne | 296/308 | 1,0 s | 16 | 154,7 tok/s |
+| trois fruits rouges | 0/303 | 47,4 s | 99 | 8,4 tok/s |
+| capitale de l'Italie | 296/307 | 43,4 s | 15 | 44,5 tok/s |
+
+Dans la page de chat (raisonnement `medium`) : 1 285 tokens en 136 s, soit 9,4 tok/s. La toute première requête après démarrage a échoué avec `kIOGPUCommandBufferCallbackErrorTimeout`. Swap mesuré pendant ces essais : 3,85 Go utilisés. Les 5,3 Go de mémoire GPU que le modèle garde bloqués poussent le reste du système en swap, d'où des temps très irréguliers (même avec le cache de prompt).
 
 ## Pourquoi ces réglages
 
