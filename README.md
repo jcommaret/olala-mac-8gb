@@ -126,4 +126,4 @@ OVH ne publie pas de Q4 GGUF (retiré). La doc du fork décrit une variante 4,0 
 
 ## Crédits
 
-Modèle, forks llama.cpp et mlx-engine : OVHcloud / OVH LLM SAS (Apache-2.0, MIT). Ce dépôt ne contient que des scripts et une page de chat ; aucun poids.
+Modèle, forks llama.cpp et mlx-engine : OVHcloud / OVH LLM SAS (Apache-2.0, MIT). Ce dépôt ne contient que des scripts et une page de chat, aucun poids ; ils sont sous [licence MIT](LICENSE).
