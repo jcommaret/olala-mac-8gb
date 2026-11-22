@@ -1,8 +1,7 @@
-# Forks clonés et poids téléchargés par les scripts
+# Fork cloné et poids téléchargés par setup.sh
 llama.cpp/
-mlx-engine/
 gguf/
 *.gguf
-*.safetensors
 .DS_Store
-__pycache__/
+# Ancienne installation MLX locale, hors dépôt
+mlx-engine/
